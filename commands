@@ -1,0 +1,123 @@
+#!/usr/bin/env bash
+set -eo pipefail; [[ $DOKKU_TRACE ]] && set -x
+source "$(dirname $0)/../common/functions"
+
+DOKKU_LOGSPOUT_ROOT=$DOKKU_ROOT/.logspout
+[[ -f "$DOKKU_LOGSPOUT_ROOT/OPTS" ]] && source "$DOKKU_LOGSPOUT_ROOT/OPTS"
+
+do_run() {
+  CID=$(docker run -d --name="logspout" \
+        --volume=/var/run/docker.sock:/tmp/docker.sock \
+        --publish=127.0.0.1:${DOKKU_LOGSPOUT_PORT}:8000 \
+        gliderlabs/logspout \
+        $DOKKU_LOGSPOUT_SYSLOG_SERVER)
+  echo $CID > "$DOKKU_LOGSPOUT_ROOT/CONTAINER"
+}
+
+case "$1" in
+  logspout:info)
+    if [[ -f "$DOKKU_LOGSPOUT_ROOT/CONTAINER" ]]; then
+      CID=$(< $DOKKU_LOGSPOUT_ROOT/CONTAINER)
+      dokku_log_info2_quiet "logspout status"
+      if (docker ps --no-trunc | grep -q $CID); then
+        dokku_log_verbose "running"
+      else
+        dokku_log_verbose "not running"
+      fi
+    else
+      dokku_log_warn "logspout not deployed"
+    fi
+    if [[ -f "$DOKKU_LOGSPOUT_ROOT/OPTS" ]]; then
+      dokku_log_info2_quiet "dokku-logspout config"
+      while read line; do
+        [[ $line = *"="* ]] && dokku_log_verbose $line | sed -e "s:export ::g"
+      done < "$DOKKU_LOGSPOUT_ROOT/OPTS"
+    fi
+  ;;
+
+  # destroy logspout container
+  logspout:destroy)
+    if [[ -f "$DOKKU_LOGSPOUT_ROOT/CONTAINER" ]]; then
+      CID=$(< $DOKKU_LOGSPOUT_ROOT/CONTAINER)
+      docker stop $CID || true
+      docker rm -f $CID
+      rm $DOKKU_LOGSPOUT_ROOT/CONTAINER
+    else
+      dokku_log_warn "logspout not deployed"
+    fi
+  ;;
+
+  # Set local logspout port
+  logspout:port)
+    [[ -z $2 ]] && echo "Please specify a port" && exit 1
+    local DOKKU_LOGSPOUT_PORT=$2
+
+    if (grep -q DOKKU_LOGSPOUT_PORT $DOKKU_LOGSPOUT_ROOT/OPTS); then
+      grep -v DOKKU_LOGSPOUT_PORT $DOKKU_LOGSPOUT_ROOT/OPTS > $DOKKU_LOGSPOUT_ROOT/.opts.tmp
+      mv $DOKKU_LOGSPOUT_ROOT/.opts.tmp $DOKKU_LOGSPOUT_ROOT/OPTS
+      echo "export DOKKU_LOGSPOUT_PORT=$DOKKU_LOGSPOUT_PORT" >> $DOKKU_LOGSPOUT_ROOT/OPTS
+    else
+      echo "export DOKKU_LOGSPOUT_PORT=$DOKKU_LOGSPOUT_PORT" >> $DOKKU_LOGSPOUT_ROOT/OPTS
+    fi
+  ;;
+
+  # Set external syslog server
+  logspout:server)
+    [[ -z $2 ]] && echo "Please specify a syslog uri" && exit 1
+    local DOKKU_LOGSPOUT_SYSLOG_SERVER=$2
+
+    if (grep -q DOKKU_LOGSPOUT_SYSLOG_SERVER $DOKKU_LOGSPOUT_ROOT/OPTS); then
+      grep -v DOKKU_LOGSPOUT_SYSLOG_SERVER $DOKKU_LOGSPOUT_ROOT/OPTS > $DOKKU_LOGSPOUT_ROOT/.opts.tmp
+      mv $DOKKU_LOGSPOUT_ROOT/.opts.tmp $DOKKU_LOGSPOUT_ROOT/OPTS
+      echo "export DOKKU_LOGSPOUT_SYSLOG_SERVER=$DOKKU_LOGSPOUT_SYSLOG_SERVER" >> $DOKKU_LOGSPOUT_ROOT/OPTS
+    else
+      echo "export DOKKU_LOGSPOUT_SYSLOG_SERVER=$DOKKU_LOGSPOUT_SYSLOG_SERVER" >> $DOKKU_LOGSPOUT_ROOT/OPTS
+    fi
+  ;;
+
+  # Start logspout
+  logspout:start)
+    if [[ ! -f "$DOKKU_LOGSPOUT_ROOT/CONTAINER" ]]; then
+      do_run
+    else
+      CID=$(< $DOKKU_LOGSPOUT_ROOT/CONTAINER)
+      if ! (docker ps -q --no-trunc | grep -q "$CID"); then
+        docker rm -f logspout
+        do_run
+      fi
+    fi
+  ;;
+
+  # Stop logspout
+  logspout:stop)
+    if [[ -f "$DOKKU_LOGSPOUT_ROOT/CONTAINER" ]]; then
+      CID=$(< $DOKKU_LOGSPOUT_ROOT/CONTAINER)
+      docker stop $CID || true
+    else
+      dokku_log_warn "logspout not deployed"
+    fi
+  ;;
+
+  # print log stream to stdout
+  logspout:stream)
+    curl http://127.0.0.1:${DOKKU_LOGSPOUT_PORT}/logs
+  ;;
+
+  # Display usage help
+  help)
+    cat && cat<<EOF
+    logspout:info                                   show status of running container
+    logspout:destroy                                destroy logspout container
+    logspout:port <port>                            set local logspout port
+    logspout:server <server-url>                    set remote syslog server
+    logspout:start                                  start logspout container
+    logspout:stop                                   stop logspout container
+    logspout:stream                                 print log stream to stdout
+EOF
+  ;;
+
+  *)
+    exit $DOKKU_NOT_IMPLEMENTED_EXIT
+  ;;
+
+esac

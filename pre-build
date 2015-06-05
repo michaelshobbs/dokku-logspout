@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+set -eo pipefail; [[ $DOKKU_TRACE ]] && set -x
+source "$(dirname $0)/../common/functions"
+
+DOKKU_LOGSPOUT_ROOT=$DOKKU_ROOT/.logspout
+source "$DOKKU_LOGSPOUT_ROOT/OPTS"
+
+dokku logspout:start
