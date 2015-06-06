@@ -7,7 +7,7 @@ Requirements
 ------------
 * Dokku version `0.3.10` or higher
 
-Instalation
+Installation 
 -----------
 ```
 cd /var/lib/dokku/plugins
