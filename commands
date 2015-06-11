@@ -50,7 +50,7 @@ case "$1" in
   # Set local logspout port
   logspout:port)
     [[ -z $2 ]] && echo "Please specify a port" && exit 1
-    local DOKKU_LOGSPOUT_PORT=$2
+    DOKKU_LOGSPOUT_PORT="$2"
 
     if (grep -q DOKKU_LOGSPOUT_PORT $DOKKU_LOGSPOUT_ROOT/OPTS); then
       grep -v DOKKU_LOGSPOUT_PORT $DOKKU_LOGSPOUT_ROOT/OPTS > $DOKKU_LOGSPOUT_ROOT/.opts.tmp
@@ -64,7 +64,7 @@ case "$1" in
   # Set external syslog server
   logspout:server)
     [[ -z $2 ]] && echo "Please specify a syslog uri" && exit 1
-    local DOKKU_LOGSPOUT_SYSLOG_SERVER=$2
+    DOKKU_LOGSPOUT_SYSLOG_SERVER="$2"
 
     if (grep -q DOKKU_LOGSPOUT_SYSLOG_SERVER $DOKKU_LOGSPOUT_ROOT/OPTS); then
       grep -v DOKKU_LOGSPOUT_SYSLOG_SERVER $DOKKU_LOGSPOUT_ROOT/OPTS > $DOKKU_LOGSPOUT_ROOT/.opts.tmp
