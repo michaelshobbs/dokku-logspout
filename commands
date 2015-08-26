@@ -106,13 +106,13 @@ case "$1" in
   # Display usage help
   help)
     cat && cat<<EOF
-    logspout:info                                   show status of running container
-    logspout:destroy                                destroy logspout container
-    logspout:port <port>                            set local logspout port
-    logspout:server <server-url>                    set remote syslog server
-    logspout:start                                  start logspout container
-    logspout:stop                                   stop logspout container
-    logspout:stream                                 print log stream to stdout
+    logspout:info, show status of running container
+    logspout:destroy, destroy logspout container
+    logspout:port <port>, set local logspout port
+    logspout:server <server-url>, set remote syslog server
+    logspout:start, start logspout container
+    logspout:stop, stop logspout container
+    logspout:stream, print log stream to stdout
 EOF
   ;;
 
