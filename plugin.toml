@@ -1,0 +1,4 @@
+[plugin]
+description = "dokku-logspout: sends dokku app stdout to a logging service"
+version = "0.1.0"
+[plugin.config]

@@ -7,12 +7,17 @@ Requirements
 ------------
 * Dokku version `0.3.10` or higher
 
-Installation 
+Installation
 -----------
 ```
-cd /var/lib/dokku/plugins
+# dokku 0.3.x
+cd /var/lib/dokku/plugins (or /var/lib/dokku/plugins/ava)
 git clone https://github.com/michaelshobbs/dokku-logspout.git dokku-logspout
 dokku plugins-install
+```
+```
+# dokku 0.4.x
+dokku plugin:install https://github.com/michaelshobbs/dokku-logspout.git
 ```
 
 Commands
