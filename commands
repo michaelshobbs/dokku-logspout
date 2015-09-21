@@ -105,7 +105,7 @@ case "$1" in
 
   # Display usage help
   help)
-    cat && cat<<EOF
+    HELP=$(cat<<EOF
     logspout:info, show status of running container
     logspout:destroy, destroy logspout container
     logspout:port <port>, set local logspout port
@@ -114,6 +114,12 @@ case "$1" in
     logspout:stop, stop logspout container
     logspout:stream, print log stream to stdout
 EOF
+)
+    if [[ -n $DOKKU_API_VERSION ]]; then
+      echo "$HELP"
+    else
+      cat && echo "$HELP"
+    fi
   ;;
 
   *)
