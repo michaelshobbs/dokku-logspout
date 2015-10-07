@@ -14,6 +14,7 @@ do_run() {
   CID=$(docker run -d --name="logspout" \
         --volume=/var/run/docker.sock:/tmp/docker.sock \
         --publish=127.0.0.1:${DOKKU_LOGSPOUT_PORT}:8000 \
+        --restart=always \
         gliderlabs/logspout \
         $DOKKU_LOGSPOUT_SYSLOG_SERVER)
   echo $CID > "$DOKKU_LOGSPOUT_ROOT/CONTAINER"
