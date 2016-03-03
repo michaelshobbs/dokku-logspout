@@ -1,7 +1,7 @@
 Logspout plugin for Dokku
 =========================
 
-Project: https://github.com/progrium/dokku & https://github.com/gliderlabs/logspout
+Project: https://github.com/dokku/dokku & https://github.com/gliderlabs/logspout
 
 Requirements
 ------------
@@ -31,6 +31,7 @@ $ dokku help
     logspout:start                                  start logspout container
     logspout:stop                                   stop logspout container
     logspout:stream                                 print log stream to stdout
+    logspout:update                                 updates the logspout docker image
 ```
 
 ## Contributing

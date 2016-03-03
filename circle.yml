@@ -1,0 +1,9 @@
+machine:
+  services:
+    - docker
+dependencies:
+  override:
+    - make -e ci-dependencies
+test:
+  override:
+    - make -e lint

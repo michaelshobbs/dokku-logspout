@@ -1,8 +1,13 @@
 #!/usr/bin/env bash
 set -eo pipefail; [[ $DOKKU_TRACE ]] && set -x
-source "$(dirname $0)/../common/functions"
 
-DOKKU_LOGSPOUT_ROOT=$DOKKU_ROOT/.logspout
+PLUGIN_BASE_PATH="$PLUGIN_PATH"
+if [[ -n $DOKKU_API_VERSION ]]; then
+  PLUGIN_BASE_PATH="$PLUGIN_ENABLED_PATH"
+fi
+source "$PLUGIN_BASE_PATH/common/functions"
+
+DOKKU_LOGSPOUT_ROOT="$DOKKU_ROOT/.logspout"
 source "$DOKKU_LOGSPOUT_ROOT/OPTS"
 
 dokku logspout:start
