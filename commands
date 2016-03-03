@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 set -eo pipefail; [[ $DOKKU_TRACE ]] && set -x
+[[ " logspout:info logspout:destroy logspout:port logspout:server logspout:start logspout:stop logspout:stream help " == *" $1 "* ]] || exit "$DOKKU_NOT_IMPLEMENTED_EXIT"
 
 PLUGIN_BASE_PATH="$PLUGIN_PATH"
 if [[ -n $DOKKU_API_VERSION ]]; then
@@ -11,7 +12,7 @@ DOKKU_LOGSPOUT_ROOT=$DOKKU_ROOT/.logspout
 [[ -f "$DOKKU_LOGSPOUT_ROOT/OPTS" ]] && source "$DOKKU_LOGSPOUT_ROOT/OPTS"
 
 do_run() {
-  CID=$(docker run -d --name="logspout" \
+  local CID=$(docker run -d --name="logspout" \
         --volume=/var/run/docker.sock:/tmp/docker.sock \
         --publish=127.0.0.1:${DOKKU_LOGSPOUT_PORT}:8000 \
         gliderlabs/logspout \
@@ -19,94 +20,131 @@ do_run() {
   echo $CID > "$DOKKU_LOGSPOUT_ROOT/CONTAINER"
 }
 
+logspout_info_cmd() {
+  local desc="shows info about logspout config"
+  local cmd="logspout:info"
+  if [[ -f "$DOKKU_LOGSPOUT_ROOT/CONTAINER" ]]; then
+    local CID=$(< $DOKKU_LOGSPOUT_ROOT/CONTAINER)
+    dokku_log_info2_quiet "logspout status"
+
+    if (is_container_running $CID); then
+      dokku_log_verbose "running"
+    else
+      dokku_log_verbose "not running"
+    fi
+  else
+    dokku_log_warn "logspout not deployed"
+  fi
+  if [[ -f "$DOKKU_LOGSPOUT_ROOT/OPTS" ]]; then
+    dokku_log_info2_quiet "dokku-logspout config"
+    while read line; do
+      [[ $line = *"="* ]] && dokku_log_verbose $line | sed -e "s:export ::g"
+    done < "$DOKKU_LOGSPOUT_ROOT/OPTS"
+  fi
+}
+
+logspout_destroy_cmd() {
+  local desc="destroys logspout container"
+  local cmd="logspout:destroy"
+  if [[ -f "$DOKKU_LOGSPOUT_ROOT/CONTAINER" ]]; then
+    local CID=$(< $DOKKU_LOGSPOUT_ROOT/CONTAINER)
+    docker stop $CID || true
+    docker rm -f $CID || true
+    rm -f $DOKKU_LOGSPOUT_ROOT/CONTAINER
+  else
+    dokku_log_warn "logspout not deployed"
+  fi
+}
+
+logspout_port_cmd() {
+  local desc="sets local logspout port for local output streaming"
+  local cmd="logspout:port"
+  [[ -z $2 ]] && echo "Please specify a port" && exit 1
+  local DOKKU_LOGSPOUT_PORT="$2"
+
+  if (grep -q DOKKU_LOGSPOUT_PORT $DOKKU_LOGSPOUT_ROOT/OPTS); then
+    grep -v DOKKU_LOGSPOUT_PORT $DOKKU_LOGSPOUT_ROOT/OPTS > $DOKKU_LOGSPOUT_ROOT/.opts.tmp
+    mv $DOKKU_LOGSPOUT_ROOT/.opts.tmp $DOKKU_LOGSPOUT_ROOT/OPTS
+    echo "export DOKKU_LOGSPOUT_PORT=$DOKKU_LOGSPOUT_PORT" >> $DOKKU_LOGSPOUT_ROOT/OPTS
+  else
+    echo "export DOKKU_LOGSPOUT_PORT=$DOKKU_LOGSPOUT_PORT" >> $DOKKU_LOGSPOUT_ROOT/OPTS
+  fi
+}
+
+logspout_server_cmd() {
+  local desc="sets external syslogs server url"
+  local cmd="logspout:server"
+  [[ -z $2 ]] && echo "Please specify a syslog uri" && exit 1
+  local DOKKU_LOGSPOUT_SYSLOG_SERVER="$2"
+
+  if (grep -q DOKKU_LOGSPOUT_SYSLOG_SERVER $DOKKU_LOGSPOUT_ROOT/OPTS); then
+    grep -v DOKKU_LOGSPOUT_SYSLOG_SERVER $DOKKU_LOGSPOUT_ROOT/OPTS > $DOKKU_LOGSPOUT_ROOT/.opts.tmp
+    mv $DOKKU_LOGSPOUT_ROOT/.opts.tmp $DOKKU_LOGSPOUT_ROOT/OPTS
+    echo "export DOKKU_LOGSPOUT_SYSLOG_SERVER=$DOKKU_LOGSPOUT_SYSLOG_SERVER" >> $DOKKU_LOGSPOUT_ROOT/OPTS
+  else
+    echo "export DOKKU_LOGSPOUT_SYSLOG_SERVER=$DOKKU_LOGSPOUT_SYSLOG_SERVER" >> $DOKKU_LOGSPOUT_ROOT/OPTS
+  fi
+}
+
+logspout_start_cmd() {
+  local desc="starts logspout container"
+  local cmd="logspout:start"
+  if [[ ! -f "$DOKKU_LOGSPOUT_ROOT/CONTAINER" ]]; then
+    do_run
+  else
+    local CID=$(< $DOKKU_LOGSPOUT_ROOT/CONTAINER)
+    if (is_container_running $CID); then
+      docker rm -f logspout || true
+      do_run
+    fi
+  fi
+}
+
+logspout_stop_cmd() {
+  local desc="stops logspout container"
+  local cmd="logspout:stop"
+  if [[ -f "$DOKKU_LOGSPOUT_ROOT/CONTAINER" ]]; then
+    CID=$(< $DOKKU_LOGSPOUT_ROOT/CONTAINER)
+    docker stop $CID || true
+  else
+    dokku_log_warn "logspout not deployed"
+  fi
+}
+
+logspout_stream_cmd() {
+  local desc="streams logspout log stream to stdout"
+  local cmd="logspout:stream"
+  curl http://127.0.0.1:${DOKKU_LOGSPOUT_PORT}/logs
+}
+
 case "$1" in
   logspout:info)
-    if [[ -f "$DOKKU_LOGSPOUT_ROOT/CONTAINER" ]]; then
-      CID=$(< $DOKKU_LOGSPOUT_ROOT/CONTAINER)
-      dokku_log_info2_quiet "logspout status"
-      if (docker ps --no-trunc | grep -q $CID); then
-        dokku_log_verbose "running"
-      else
-        dokku_log_verbose "not running"
-      fi
-    else
-      dokku_log_warn "logspout not deployed"
-    fi
-    if [[ -f "$DOKKU_LOGSPOUT_ROOT/OPTS" ]]; then
-      dokku_log_info2_quiet "dokku-logspout config"
-      while read line; do
-        [[ $line = *"="* ]] && dokku_log_verbose $line | sed -e "s:export ::g"
-      done < "$DOKKU_LOGSPOUT_ROOT/OPTS"
-    fi
-  ;;
+    logspout_info_cmd "$@"
+    ;;
 
-  # destroy logspout container
   logspout:destroy)
-    if [[ -f "$DOKKU_LOGSPOUT_ROOT/CONTAINER" ]]; then
-      CID=$(< $DOKKU_LOGSPOUT_ROOT/CONTAINER)
-      docker stop $CID || true
-      docker rm -f $CID
-      rm $DOKKU_LOGSPOUT_ROOT/CONTAINER
-    else
-      dokku_log_warn "logspout not deployed"
-    fi
-  ;;
+    logspout_destroy_cmd "$@"
+    ;;
 
-  # Set local logspout port
   logspout:port)
-    [[ -z $2 ]] && echo "Please specify a port" && exit 1
-    DOKKU_LOGSPOUT_PORT="$2"
+    logspout_port_cmd "$@"
+    ;;
 
-    if (grep -q DOKKU_LOGSPOUT_PORT $DOKKU_LOGSPOUT_ROOT/OPTS); then
-      grep -v DOKKU_LOGSPOUT_PORT $DOKKU_LOGSPOUT_ROOT/OPTS > $DOKKU_LOGSPOUT_ROOT/.opts.tmp
-      mv $DOKKU_LOGSPOUT_ROOT/.opts.tmp $DOKKU_LOGSPOUT_ROOT/OPTS
-      echo "export DOKKU_LOGSPOUT_PORT=$DOKKU_LOGSPOUT_PORT" >> $DOKKU_LOGSPOUT_ROOT/OPTS
-    else
-      echo "export DOKKU_LOGSPOUT_PORT=$DOKKU_LOGSPOUT_PORT" >> $DOKKU_LOGSPOUT_ROOT/OPTS
-    fi
-  ;;
-
-  # Set external syslog server
   logspout:server)
-    [[ -z $2 ]] && echo "Please specify a syslog uri" && exit 1
-    DOKKU_LOGSPOUT_SYSLOG_SERVER="$2"
+    logspout_server_cmd "$@"
+    ;;
 
-    if (grep -q DOKKU_LOGSPOUT_SYSLOG_SERVER $DOKKU_LOGSPOUT_ROOT/OPTS); then
-      grep -v DOKKU_LOGSPOUT_SYSLOG_SERVER $DOKKU_LOGSPOUT_ROOT/OPTS > $DOKKU_LOGSPOUT_ROOT/.opts.tmp
-      mv $DOKKU_LOGSPOUT_ROOT/.opts.tmp $DOKKU_LOGSPOUT_ROOT/OPTS
-      echo "export DOKKU_LOGSPOUT_SYSLOG_SERVER=$DOKKU_LOGSPOUT_SYSLOG_SERVER" >> $DOKKU_LOGSPOUT_ROOT/OPTS
-    else
-      echo "export DOKKU_LOGSPOUT_SYSLOG_SERVER=$DOKKU_LOGSPOUT_SYSLOG_SERVER" >> $DOKKU_LOGSPOUT_ROOT/OPTS
-    fi
-  ;;
-
-  # Start logspout
   logspout:start)
-    if [[ ! -f "$DOKKU_LOGSPOUT_ROOT/CONTAINER" ]]; then
-      do_run
-    else
-      CID=$(< $DOKKU_LOGSPOUT_ROOT/CONTAINER)
-      if ! (docker ps -q --no-trunc | grep -q "$CID"); then
-        docker rm -f logspout
-        do_run
-      fi
-    fi
-  ;;
+    logspout_start_cmd "$@"
+    ;;
 
-  # Stop logspout
   logspout:stop)
-    if [[ -f "$DOKKU_LOGSPOUT_ROOT/CONTAINER" ]]; then
-      CID=$(< $DOKKU_LOGSPOUT_ROOT/CONTAINER)
-      docker stop $CID || true
-    else
-      dokku_log_warn "logspout not deployed"
-    fi
-  ;;
+    logspout_stop_cmd "$@"
+    ;;
 
-  # print log stream to stdout
   logspout:stream)
-    curl http://127.0.0.1:${DOKKU_LOGSPOUT_PORT}/logs
-  ;;
+    logspout_stream_cmd "$@"
+    ;;
 
   # Display usage help
   help)
