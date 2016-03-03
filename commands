@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 set -eo pipefail; [[ $DOKKU_TRACE ]] && set -x
-[[ " logspout:info logspout:destroy logspout:port logspout:server logspout:start logspout:stop logspout:stream help " == *" $1 "* ]] || exit "$DOKKU_NOT_IMPLEMENTED_EXIT"
+[[ " logspout:info logspout:destroy logspout:port logspout:server logspout:start logspout:stop logspout:stream logspout:update help " == *" $1 "* ]] || exit "$DOKKU_NOT_IMPLEMENTED_EXIT"
 
 PLUGIN_BASE_PATH="$PLUGIN_PATH"
 if [[ -n $DOKKU_API_VERSION ]]; then
@@ -12,11 +12,12 @@ DOKKU_LOGSPOUT_ROOT="$DOKKU_ROOT/.logspout"
 [[ -f "$DOKKU_LOGSPOUT_ROOT/OPTS" ]] && source "$DOKKU_LOGSPOUT_ROOT/OPTS"
 
 do_run() {
+  local DOKKU_LOGSPOUT_SYSLOG_SERVER=${DOKKU_LOGSPOUT_SYSLOG_SERVER:-"syslog://"}
   # shellcheck disable=SC2086
   local CID=$(docker run -d --name="logspout" \
         --volume=/var/run/docker.sock:/tmp/docker.sock \
         --publish=127.0.0.1:${DOKKU_LOGSPOUT_PORT}:80 \
-        gliderlabs/logspout \
+        gliderlabs/logspout:${DOKKU_LOGSPOUT_IMAGE_VERSION} \
         $DOKKU_LOGSPOUT_SYSLOG_SERVER)
   echo "$CID" > "$DOKKU_LOGSPOUT_ROOT/CONTAINER"
 }
@@ -28,7 +29,7 @@ logspout_info_cmd() {
     local CID=$(< "$DOKKU_LOGSPOUT_ROOT/CONTAINER")
     dokku_log_info2_quiet "logspout status"
 
-    if (is_container_running $"CID"); then
+    if (is_container_running "$CID"); then
       dokku_log_verbose "running"
     else
       dokku_log_verbose "not running"
@@ -118,6 +119,16 @@ logspout_stream_cmd() {
   curl "http://127.0.0.1:${DOKKU_LOGSPOUT_PORT}/logs"
 }
 
+logspout_update_cmd() {
+  local desc="updates logspout docker images"
+  local cmd="logspout:update"
+
+  logspout_stop_cmd
+  logspout_destroy_cmd
+  docker pull "gliderlabs/logspout:${DOKKU_LOGSPOUT_IMAGE_VERSION}"
+  logspout_start_cmd
+}
+
 case "$1" in
   logspout:info)
     logspout_info_cmd "$@"
@@ -147,7 +158,10 @@ case "$1" in
     logspout_stream_cmd "$@"
     ;;
 
-  # Display usage help
+  logspout:update)
+    logspout_update_cmd "$@"
+    ;;
+
   help)
     HELP=$(cat<<EOF
     logspout:info, show status of running container
@@ -157,6 +171,7 @@ case "$1" in
     logspout:start, start logspout container
     logspout:stop, stop logspout container
     logspout:stream, print log stream to stdout
+    logspout:update, updates the logspout docker image
 EOF
 )
     if [[ -n $DOKKU_API_VERSION ]]; then
