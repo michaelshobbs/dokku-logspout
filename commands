@@ -17,6 +17,7 @@ do_run() {
   local CID=$(docker run -d --name="logspout" \
         --volume=/var/run/docker.sock:/tmp/docker.sock \
         --publish=127.0.0.1:${DOKKU_LOGSPOUT_PORT}:80 \
+        --restart=unless-stopped \
         gliderlabs/logspout:${DOKKU_LOGSPOUT_IMAGE_VERSION} \
         $DOKKU_LOGSPOUT_SYSLOG_SERVER)
   echo "$CID" > "$DOKKU_LOGSPOUT_ROOT/CONTAINER"
@@ -95,8 +96,8 @@ logspout_start_cmd() {
     do_run
   else
     local CID=$(< "$DOKKU_LOGSPOUT_ROOT/CONTAINER")
-    if (is_container_running "$CID"); then
-      docker rm -f logspout || true
+    if (! is_container_running "$CID"); then
+      docker rm -f logspout &>/dev/null || true
       do_run
     fi
   fi
