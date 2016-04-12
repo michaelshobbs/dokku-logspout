@@ -93,6 +93,9 @@ logspout_start_cmd() {
   local desc="starts logspout container"
   local cmd="logspout:start"
   if [[ ! -f "$DOKKU_LOGSPOUT_ROOT/CONTAINER" ]]; then
+    if (docker inspect logspout &> /dev/null); then
+      docker rm -f logspout &>/dev/null || true
+    fi
     do_run
   else
     local CID=$(< "$DOKKU_LOGSPOUT_ROOT/CONTAINER")
