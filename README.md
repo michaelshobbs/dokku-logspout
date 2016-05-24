@@ -20,6 +20,12 @@ dokku plugins-install
 dokku plugin:install https://github.com/michaelshobbs/dokku-logspout.git
 ```
 
+### Customization
+
+Configuration settings are stored in `/home/dokku/.logspout/OPTS`. If you would like
+to use a specific version of the logspout container, you can edit `OPTS` and modify
+the `DOKKU_LOGSPOUT_IMAGE_VERSION` to point to a specific image version.
+
 Commands
 --------
 ```
