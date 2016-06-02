@@ -49,6 +49,13 @@ CONTAINER ID        IMAGE                      COMMAND                  CREATED 
 c7b1414cc465        gliderlabs/logspout:v3.1   "/bin/logspout syslog"   1 seconds ago       Up 1 seconds        127.0.0.1:18000->80/tcp   logspout
 ```
 
+If you need to change the environment variables used by logspout, you can add these to the `/home/dokku/.logspout/ENV` file, for example:
+```
+SYSLOG_HOSTNAME=www.my-dokku-host.com
+SYSLOG_TAG={{.Container.Config.Hostname}}
+```
+When changing the variable file, you have to restart the logspout container: `dokku logspout:stop && dokku logspout:start`
+
 Commands
 --------
 ```
