@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 set -eo pipefail; [[ $DOKKU_TRACE ]] && set -x
-[[ " logspout:info logspout:destroy logspout:port logspout:server logspout:start logspout:stop logspout:stream logspout:update help " == *" $1 "* ]] || exit "$DOKKU_NOT_IMPLEMENTED_EXIT"
+[[ " logspout:info logspout:destroy logspout:port logspout:server logspout:start logspout:stop logspout:stream logspout:update logspout:help help " == *" $1 "* ]] || exit "$DOKKU_NOT_IMPLEMENTED_EXIT"
 
 PLUGIN_BASE_PATH="$PLUGIN_PATH"
 if [[ -n $DOKKU_API_VERSION ]]; then
@@ -44,6 +44,12 @@ logspout_info_cmd() {
     while read line; do
       [[ $line = *"="* ]] && dokku_log_verbose "$line" | sed -e "s:export ::g"
     done < "$DOKKU_LOGSPOUT_ROOT/OPTS"
+  fi
+  if [[ -f "$DOKKU_LOGSPOUT_ROOT/ENV" ]] && [[ -s "$DOKKU_LOGSPOUT_ROOT/ENV" ]]; then
+    dokku_log_info2_quiet "dokku-logspout env"
+    while read line; do
+      [[ $line = *"="* ]] && dokku_log_verbose "$line" | sed -e "s:export ::g"
+    done < "$DOKKU_LOGSPOUT_ROOT/ENV"
   fi
 }
 
@@ -167,8 +173,10 @@ case "$1" in
     logspout_update_cmd "$@"
     ;;
 
-  help)
-    HELP=$(cat<<EOF
+  help | logspout:help)
+help_content_func () {
+      declare desc="return logspout plugin help content"
+      cat<<help_content
     logspout:info, show status of running container
     logspout:destroy, destroy logspout container
     logspout:port <port>, set local logspout port
@@ -177,12 +185,22 @@ case "$1" in
     logspout:stop, stop logspout container
     logspout:stream, print log stream to stdout
     logspout:update, updates the logspout docker image
-EOF
-)
+help_content
+    }
+
     if [[ -n $DOKKU_API_VERSION ]]; then
-      echo "$HELP"
+      if [[ $1 = "logspout:help" ]] ; then
+          echo -e 'Usage: dokku logspout[:COMMAND]'
+          echo ''
+          echo 'Manage logspout integration.'
+          echo ''
+          echo 'Additional commands:'
+          help_content_func | sort | column -c2 -t -s,
+      else
+          help_content_func
+      fi
     else
-      cat && echo "$HELP"
+      cat && help_content_func
     fi
   ;;
 
