@@ -11,13 +11,29 @@ source "$PLUGIN_BASE_PATH/common/functions"
 DOKKU_LOGSPOUT_ROOT="$DOKKU_ROOT/.logspout"
 [[ -f "$DOKKU_LOGSPOUT_ROOT/OPTS" ]] && source "$DOKKU_LOGSPOUT_ROOT/OPTS"
 
+f_gethostname() {
+  local desc="return hostname based on opsworks stack/layer/hostname or just system hostname"
+  local OPSWORKS_STACK_NAME HOSTNAME
+
+  OPSWORKS_STACK_NAME=$(grep "OpsWorks Stack:" /etc/motd 2>/dev/null || true)
+  if [[ -n "$OPSWORKS_STACK_NAME" ]]; then
+    HOSTNAME=$(echo "$OPSWORKS_STACK_NAME" "$(hostname)" | awk -F: '{ print $2 }' | xargs | tr '[:upper:]' '[:lower:]' | sed -e 's: :-:g')
+  else
+    HOSTNAME=$(hostname)
+  fi
+
+  echo "$HOSTNAME"
+}
+
 do_run() {
-  local DOKKU_LOGSPOUT_SYSLOG_SERVER=${DOKKU_LOGSPOUT_SYSLOG_SERVER:-"syslog://"}
+  local CID HOSTNAME DOKKU_LOGSPOUT_SYSLOG_SERVER=${DOKKU_LOGSPOUT_SYSLOG_SERVER:-"syslog://"}
+  HOSTNAME="$(f_gethostname)"
   # shellcheck disable=SC2086
-  local CID=$(docker run -d --name="logspout" \
+  CID=$(docker run -d --name="logspout" \
         --volume=/var/run/docker.sock:/tmp/docker.sock \
         --publish=127.0.0.1:${DOKKU_LOGSPOUT_PORT}:80 \
         --restart=unless-stopped \
+        --hostname=${HOSTNAME} \
         --env-file=${DOKKU_LOGSPOUT_ROOT}/ENV \
         gliderlabs/logspout:${DOKKU_LOGSPOUT_IMAGE_VERSION} \
         $DOKKU_LOGSPOUT_SYSLOG_SERVER)
@@ -25,10 +41,11 @@ do_run() {
 }
 
 logspout_info_cmd() {
+  local CID
   local desc="shows info about logspout config"
   local cmd="logspout:info"
   if [[ -f "$DOKKU_LOGSPOUT_ROOT/CONTAINER" ]]; then
-    local CID=$(< "$DOKKU_LOGSPOUT_ROOT/CONTAINER")
+    CID=$(< "$DOKKU_LOGSPOUT_ROOT/CONTAINER")
     dokku_log_info2_quiet "logspout status"
 
     if (is_container_running "$CID"); then
@@ -41,23 +58,24 @@ logspout_info_cmd() {
   fi
   if [[ -f "$DOKKU_LOGSPOUT_ROOT/OPTS" ]]; then
     dokku_log_info2_quiet "dokku-logspout config"
-    while read line; do
+    while read -r line; do
       [[ $line = *"="* ]] && dokku_log_verbose "$line" | sed -e "s:export ::g"
     done < "$DOKKU_LOGSPOUT_ROOT/OPTS"
   fi
   if [[ -f "$DOKKU_LOGSPOUT_ROOT/ENV" ]] && [[ -s "$DOKKU_LOGSPOUT_ROOT/ENV" ]]; then
     dokku_log_info2_quiet "dokku-logspout env"
-    while read line; do
+    while read -r line; do
       [[ $line = *"="* ]] && dokku_log_verbose "$line" | sed -e "s:export ::g"
     done < "$DOKKU_LOGSPOUT_ROOT/ENV"
   fi
 }
 
 logspout_destroy_cmd() {
+  local CID
   local desc="destroys logspout container"
   local cmd="logspout:destroy"
   if [[ -f "$DOKKU_LOGSPOUT_ROOT/CONTAINER" ]]; then
-    local CID=$(< "$DOKKU_LOGSPOUT_ROOT/CONTAINER")
+    CID=$(< "$DOKKU_LOGSPOUT_ROOT/CONTAINER")
     docker stop "$CID" || true
     docker rm -f "$CID" || true
     rm -f "$DOKKU_LOGSPOUT_ROOT/CONTAINER"
@@ -97,6 +115,7 @@ logspout_server_cmd() {
 }
 
 logspout_start_cmd() {
+  local CID
   local desc="starts logspout container"
   local cmd="logspout:start"
   if [[ ! -f "$DOKKU_LOGSPOUT_ROOT/CONTAINER" ]]; then
@@ -105,7 +124,7 @@ logspout_start_cmd() {
     fi
     do_run
   else
-    local CID=$(< "$DOKKU_LOGSPOUT_ROOT/CONTAINER")
+    CID=$(< "$DOKKU_LOGSPOUT_ROOT/CONTAINER")
     if (! is_container_running "$CID"); then
       docker rm -f logspout &>/dev/null || true
       do_run
@@ -114,10 +133,11 @@ logspout_start_cmd() {
 }
 
 logspout_stop_cmd() {
+  local CID
   local desc="stops logspout container"
   local cmd="logspout:stop"
   if [[ -f "$DOKKU_LOGSPOUT_ROOT/CONTAINER" ]]; then
-    local CID=$(< "$DOKKU_LOGSPOUT_ROOT/CONTAINER")
+    CID=$(< "$DOKKU_LOGSPOUT_ROOT/CONTAINER")
     docker stop "$CID" || true
   else
     dokku_log_warn "logspout not deployed"
