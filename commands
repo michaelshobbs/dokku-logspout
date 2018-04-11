@@ -48,7 +48,7 @@ logspout_info_cmd() {
     CID=$(< "$DOKKU_LOGSPOUT_ROOT/CONTAINER")
     dokku_log_info2_quiet "logspout status"
 
-    if (is_container_running "$CID"); then
+    if (is_container_status "$CID" "Running"); then
       dokku_log_verbose "running"
     else
       dokku_log_verbose "not running"
@@ -125,7 +125,7 @@ logspout_start_cmd() {
     do_run
   else
     CID=$(< "$DOKKU_LOGSPOUT_ROOT/CONTAINER")
-    if (! is_container_running "$CID"); then
+    if (! is_container_status "$CID" "Running"); then
       docker rm -f logspout &>/dev/null || true
       do_run
     fi
