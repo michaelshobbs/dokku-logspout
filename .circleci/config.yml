@@ -1,0 +1,11 @@
+version: 2
+jobs:
+  build:
+    machine: true
+    working_directory: ~/michaelshobbs/dokku-logspout
+    steps:
+      - checkout
+      - run: |
+          make -e ci-dependencies
+      - run: |
+          make -e lint
